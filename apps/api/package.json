@@ -1,0 +1,36 @@
+{
+  "name": "@biz/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/demo-server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "migrate": "tsx src/database/migrate.ts",
+    "seed": "tsx src/database/seed.ts",
+    "demo": "tsx src/demo-server.ts",
+    "dev:mysql": "tsx watch src/server.ts",
+    "local": "tsx src/demo-server.ts"
+  },
+  "dependencies": {
+    "@biz/shared": "1.0.0",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/swagger": "^9.5.0",
+    "@fastify/swagger-ui": "^6.1.2",
+    "argon2": "^0.44.0",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^17.2.0",
+    "fast-xml-parser": "^5.11.2",
+    "fastify": "^5.6.0",
+    "mysql2": "^3.15.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "vitest": "^5.0.5"
+  }
+}

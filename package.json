@@ -1,0 +1,32 @@
+{
+  "name": "bizmonitor-ge",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @biz/api",
+    "dev:mobile": "npm run start -w @biz/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run migrate -w @biz/api",
+    "db:seed": "npm run seed -w @biz/api",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.46.0"
+  },
+  "overrides": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

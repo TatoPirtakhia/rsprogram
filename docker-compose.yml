@@ -1,0 +1,16 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: bizmonitor
+      MYSQL_USER: bizmonitor
+      MYSQL_PASSWORD: local-development-only
+      MYSQL_ROOT_PASSWORD: local-root-only
+    ports: ["3306:3306"]
+    volumes: ["mysql_data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 20
+volumes:
+  mysql_data:

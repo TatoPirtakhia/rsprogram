@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "BizMonitor GE",
+    "slug": "bizmonitor-ge",
+    "scheme": "bizmonitor",
+    "version": "1.0.0",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "ge.bizmonitor.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Unlock your business dashboard securely."
+      }
+    },
+    "android": {
+      "package": "ge.bizmonitor.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-notifications",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ]
+    ]
+  }
+}

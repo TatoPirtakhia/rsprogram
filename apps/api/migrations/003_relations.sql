@@ -1,0 +1,17 @@
+ALTER TABLE businesses ADD owner_name VARCHAR(200) NOT NULL DEFAULT '';
+ALTER TABLE cash_registers ADD register_name VARCHAR(200), ADD status VARCHAR(32), ADD UNIQUE KEY tenant_register (business_uid,uid);
+ALTER TABLE fiscal_receipts ADD register_uid CHAR(36), ADD receipt_status ENUM('sale','refund','void'), ADD payment_method VARCHAR(50), ADD FOREIGN KEY (business_uid,register_uid) REFERENCES cash_registers(business_uid,uid), ADD UNIQUE KEY tenant_receipt (business_uid,uid);
+ALTER TABLE bank_accounts ADD bank_name VARCHAR(100), ADD iban VARCHAR(64), ADD UNIQUE KEY tenant_account (business_uid,uid);
+ALTER TABLE bank_transactions ADD account_uid CHAR(36), ADD direction ENUM('incoming','outgoing'), ADD category VARCHAR(100), ADD description VARCHAR(300), ADD FOREIGN KEY (business_uid,account_uid) REFERENCES bank_accounts(business_uid,uid), ADD UNIQUE KEY tenant_transaction (business_uid,uid);
+ALTER TABLE merchant_settlements ADD transaction_uid CHAR(36), ADD FOREIGN KEY (business_uid,transaction_uid) REFERENCES bank_transactions(business_uid,uid);
+ALTER TABLE transaction_reconciliations ADD receipt_uid CHAR(36), ADD transaction_uid CHAR(36), ADD note VARCHAR(500), ADD UNIQUE KEY unique_receipt (business_uid,receipt_uid), ADD UNIQUE KEY unique_transaction (business_uid,transaction_uid), ADD FOREIGN KEY (business_uid,receipt_uid) REFERENCES fiscal_receipts(business_uid,uid), ADD FOREIGN KEY (business_uid,transaction_uid) REFERENCES bank_transactions(business_uid,uid);
+ALTER TABLE tax_types ADD code VARCHAR(100), ADD UNIQUE KEY tenant_tax_type (business_uid,code);
+ALTER TABLE tax_debts ADD tax_type VARCHAR(100), ADD credit DECIMAL(18,2), ADD confirmed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE tax_obligations ADD tax_type VARCHAR(100), ADD reporting_period VARCHAR(20), ADD due_date DATE, ADD estimated BOOLEAN NOT NULL DEFAULT FALSE, ADD status VARCHAR(32), ADD kind ENUM('filing','payment'), ADD INDEX tenant_due (business_uid,due_date,status);
+ALTER TABLE tax_declarations ADD tax_type VARCHAR(100), ADD reporting_period VARCHAR(20), ADD due_date DATE, ADD status VARCHAR(32), ADD submitted_at DATETIME(3);
+ALTER TABLE integrations ADD provider_name VARCHAR(100), ADD state VARCHAR(32), ADD capability VARCHAR(32), ADD last_success_at DATETIME(3), ADD UNIQUE KEY tenant_integration (business_uid,uid);
+ALTER TABLE integration_credentials ADD integration_uid CHAR(36), ADD encrypted_value TEXT, ADD key_version VARCHAR(32), ADD FOREIGN KEY (business_uid,integration_uid) REFERENCES integrations(business_uid,uid);
+ALTER TABLE integration_sync_logs ADD integration_uid CHAR(36), ADD state VARCHAR(32), ADD message VARCHAR(500);
+ALTER TABLE integration_sync_jobs ADD integration_uid CHAR(36), ADD next_attempt_at DATETIME(3), ADD attempts INT NOT NULL DEFAULT 0, ADD state VARCHAR(32), ADD INDEX due_jobs(business_uid,state,next_attempt_at);
+ALTER TABLE notifications ADD event_key VARCHAR(191), ADD is_read BOOLEAN NOT NULL DEFAULT FALSE, ADD UNIQUE KEY unique_event (business_uid,event_key);
+CREATE TABLE push_devices (uid CHAR(36) PRIMARY KEY,business_uid CHAR(36) NOT NULL,user_uid CHAR(36) NOT NULL,token VARCHAR(255) NOT NULL UNIQUE,created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),FOREIGN KEY(business_uid) REFERENCES businesses(uid) ON DELETE CASCADE,FOREIGN KEY(user_uid) REFERENCES users(uid) ON DELETE CASCADE);

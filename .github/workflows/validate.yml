@@ -1,0 +1,28 @@
+name: Validate
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-only
+          MYSQL_DATABASE: bizmonitor_test
+        ports: ["3306:3306"]
+        options: --health-cmd="mysqladmin ping -h localhost -ptest-only" --health-interval=5s --health-retries=20
+    env:
+      TEST_DATABASE_URL: mysql://root:test-only@127.0.0.1:3306/bizmonitor_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:native -w @biz/mobile
+      - run: npx expo export --platform web
+        working-directory: apps/mobile
