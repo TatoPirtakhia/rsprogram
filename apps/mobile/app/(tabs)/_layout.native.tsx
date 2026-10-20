@@ -1,6 +1,6 @@
 import React from "react";
 import { Redirect } from "expo-router";
-import { NativeTabs } from "expo-router/native-tabs";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useSession } from "../../services/session";
 import { useTheme } from "../../theme";
 import { useT } from "../../localization";

@@ -14,6 +14,7 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import { Host, Button as ExpoButton } from "@expo/ui";
 import { useTheme } from "../theme";
 import { useT } from "../localization";
@@ -37,8 +38,9 @@ export function Txt({
       style={{
         color: color ?? (muted ? c.muted : c.text),
         fontSize: size,
-        fontWeight: bold ? "700" : "400",
-        lineHeight: size * 1.5,
+        fontWeight: bold ? "600" : "400",
+        lineHeight: Math.round(size * 1.35),
+        letterSpacing: size >= 28 ? 0.35 : size <= 13 ? 0 : -0.2,
       }}
     >
       {children}
@@ -51,11 +53,10 @@ export function Card({ children }: { children: React.ReactNode }) {
     <View
       style={{
         backgroundColor: c.card,
-        borderRadius: Platform.OS === "ios" ? 18 : 22,
-        padding: 20,
+        borderRadius: Platform.OS === "ios" ? 12 : 22,
+        borderCurve: "continuous",
+        padding: 16,
         gap: 10,
-        borderWidth: 1,
-        borderColor: c.line,
       }}
     >
       {children}
@@ -95,16 +96,20 @@ export function Button({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: quiet ? c.soft : c.accent,
+        backgroundColor: quiet ? c.fill : c.accent,
         paddingHorizontal: 16,
         paddingVertical: 13,
-        borderRadius: Platform.OS === "ios" ? 12 : 28,
+        borderRadius: 12,
         opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
         alignItems: "center",
         minHeight: 48,
       })}
     >
-      <Txt bold color={quiet ? c.accent : c.dark ? "#102A24" : "white"}>
+      <Txt
+        bold
+        size={17}
+        color={quiet ? c.accent : c.dark ? "#000000" : "white"}
+      >
         {title}
       </Txt>
     </Pressable>
@@ -115,17 +120,17 @@ export function Input(props: TextInputProps) {
   return (
     <TextInput
       placeholderTextColor={c.muted}
+      selectionColor={c.accent}
       {...props}
       style={[
         {
-          backgroundColor: c.card,
+          backgroundColor: c.fill,
           color: c.text,
-          borderWidth: 1,
-          borderColor: c.line,
-          borderRadius: 12,
-          padding: 14,
-          fontSize: 16,
-          minHeight: 48,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 11,
+          fontSize: 17,
+          minHeight: 44,
         },
         props.style,
       ]}
@@ -150,29 +155,38 @@ export function Row({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        paddingVertical: 12,
+        paddingVertical: 11,
+        minHeight: 44,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderColor: c.line,
       }}
     >
       <View style={{ flex: 1 }}>
-        <Txt bold>{title}</Txt>
+        <Txt size={17}>{title}</Txt>
         {subtitle && (
-          <Txt muted size={12}>
+          <Txt muted size={13}>
             {subtitle}
           </Txt>
         )}
       </View>
       {value && (
-        <Txt bold color={c.accent}>
+        <Txt size={17} color={c.muted}>
           {value}
         </Txt>
       )}
-      {onPress && <Txt muted>›</Txt>}
+      {onPress && (
+        <Txt size={22} color={c.muted}>
+          ›
+        </Txt>
+      )}
     </View>
   );
   return onPress ? (
-    <Pressable accessibilityRole="button" onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
+    >
       {content}
     </Pressable>
   ) : (
@@ -203,6 +217,7 @@ export function Screen({
   onRefresh,
   demo = true,
   showContext = true,
+  header,
 }: {
   title: string;
   children: React.ReactNode;
@@ -210,6 +225,7 @@ export function Screen({
   onRefresh?: () => void;
   demo?: boolean;
   showContext?: boolean;
+  header?: React.ReactNode;
 }) {
   const c = useTheme();
   const t = useT();
@@ -236,11 +252,13 @@ export function Screen({
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.bg }}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
       contentContainerStyle={{
-        padding: 20,
-        paddingTop: Math.max(20, insets.top),
-        paddingBottom: Math.max(45, insets.bottom),
-        gap: 18,
+        paddingHorizontal: 16,
+        paddingTop: Math.max(20, insets.top + 4),
+        paddingBottom: Math.max(45, insets.bottom + 24),
+        gap: 20,
         maxWidth: 900,
         width: "100%",
         alignSelf: "center",
@@ -250,28 +268,26 @@ export function Screen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={c.accent}
+            tintColor={c.muted}
           />
         ) : undefined
       }
     >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <Txt bold size={28}>
-            {title}
-          </Txt>
-        </View>
-        <Txt size={11} bold color={c.accent}>
-          BIZ / GE
-        </Txt>
+      <View style={{ gap: 2 }}>
+        {header}
+        <Text
+          accessibilityRole="header"
+          style={{
+            color: c.text,
+            fontSize: 34,
+            fontWeight: "700",
+            lineHeight: 41,
+            letterSpacing: 0.37,
+          }}
+        >
+          {title}
+        </Text>
       </View>
-    
       {offline && (
         <Card>
           <Txt color={c.warning}>{t("offline")}</Txt>
@@ -297,14 +313,14 @@ export function State({
   if (loading)
     return (
       <Card>
-        <ActivityIndicator color={c.accent} />
+        <ActivityIndicator color={c.muted} />
         {[85, 65, 95].map((n) => (
           <View
             key={n}
             style={{
               height: 16,
               width: `${n}%`,
-              backgroundColor: c.line,
+              backgroundColor: c.fill,
               borderRadius: 4,
             }}
           />
@@ -319,4 +335,116 @@ export function State({
       </Card>
     );
   return null;
+}
+// Borderless navigation-bar button: SF Symbol on iOS, text glyph elsewhere.
+export function IconButton({
+  label,
+  symbol,
+  glyph,
+  onPress,
+  disabled = false,
+  badge = 0,
+}: {
+  label: string;
+  symbol: SFSymbol;
+  glyph: string;
+  onPress: () => void;
+  disabled?: boolean;
+  badge?: number;
+}) {
+  const c = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${label}, ${badge}` : label}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={() => {
+        if (Platform.OS !== "web") void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 44,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: disabled ? 0.35 : pressed ? 0.5 : 1,
+      })}
+    >
+      <SymbolView
+        name={symbol}
+        size={22}
+        tintColor={c.accent}
+        fallback={
+          <Txt size={21} color={c.accent}>
+            {glyph}
+          </Txt>
+        }
+      />
+      {badge > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 2,
+            minWidth: 18,
+            height: 18,
+            paddingHorizontal: 5,
+            borderRadius: 9,
+            backgroundColor: c.danger,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: "white", fontSize: 11, fontWeight: "700" }}>
+            {badge > 99 ? "99+" : badge}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+// iOS navigation-bar back link: "‹ Title" in the tint color.
+export function BackLink({
+  title,
+  label = title,
+  onPress,
+}: {
+  title: string;
+  label?: string;
+  onPress: () => void;
+}) {
+  const c = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        flexShrink: 1,
+        marginLeft: -6,
+        opacity: pressed ? 0.5 : 1,
+      })}
+    >
+      <SymbolView
+        name="chevron.left"
+        size={20}
+        weight="semibold"
+        tintColor={c.accent}
+        fallback={
+          <Text style={{ color: c.accent, fontSize: 28, lineHeight: 30 }}>
+            ‹
+          </Text>
+        }
+      />
+      <Text numberOfLines={1} style={{ color: c.accent, fontSize: 17 }}>
+        {title}
+      </Text>
+    </Pressable>
+  );
 }

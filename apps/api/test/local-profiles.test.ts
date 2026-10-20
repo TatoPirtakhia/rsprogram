@@ -23,6 +23,74 @@ afterEach(() => {
     rmSync(path, { recursive: true, force: true });
 });
 describe("local RS profile management", () => {
+  it("requires a development pairing token for the configured LAN preview host", async () => {
+    vi.stubEnv("RS_PREVIEW_HOST", "192.168.0.112");
+    vi.stubEnv(
+      "RS_PREVIEW_TOKEN",
+      "fixture-preview-token-with-at-least-32-characters",
+    );
+    const { value } = store();
+    const app = Fastify();
+    try {
+      await registerLocalProfiles(app, value, "http://localhost:8081");
+      const request = (token?: string) =>
+        app.inject({
+          method: "GET",
+          url: "/api/v1/local/profiles",
+          remoteAddress: "192.168.0.50",
+          headers: {
+            host: "192.168.0.112",
+            ...(token ? { "x-preview-token": token } : {}),
+          },
+        });
+      expect((await request()).statusCode).toBe(403);
+      expect((await request("incorrect")).statusCode).toBe(403);
+      expect(
+        (await request("fixture-preview-token-with-at-least-32-characters"))
+          .statusCode,
+      ).toBe(200);
+      vi.stubEnv("NODE_ENV", "production");
+      expect(
+        (await request("fixture-preview-token-with-at-least-32-characters"))
+          .statusCode,
+      ).toBe(403);
+    } finally {
+      await app.close();
+      vi.unstubAllEnvs();
+    }
+  });
+  it("reveals the selected password only through the local non-cacheable edit endpoint", async () => {
+    const { value } = store();
+    const profile = value.save({
+      name: "Edit",
+      username: "edit-user",
+      password: "fixture-secret",
+    });
+    const app = Fastify();
+    try {
+      await registerLocalProfiles(app, value, "http://localhost:8081");
+      const url = `/api/v1/local/profiles/${profile.uid}/password`;
+      const allowed = await app.inject({
+        method: "POST",
+        url,
+        headers: { host: "localhost", origin: "http://localhost:8081" },
+      });
+      expect(allowed.json().data.password).toBe("fixture-secret");
+      expect(allowed.headers["cache-control"]).toBe("no-store");
+      const denied = await app.inject({
+        method: "POST",
+        url,
+        headers: { host: "localhost", origin: "https://untrusted.example" },
+      });
+      expect(denied.statusCode).toBe(403);
+      expect(denied.body).not.toContain("fixture-secret");
+      expect(JSON.stringify(value.get(profile.uid))).not.toContain(
+        "fixture-secret",
+      );
+    } finally {
+      await app.close();
+    }
+  });
   it("distinguishes the observed empty XML operation response from malformed XML", async () => {
     const emptyResponse =
       '<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetTPInfoDebt_RSResponse xmlns="services.rs.ge" /></soap:Body></soap:Envelope>';

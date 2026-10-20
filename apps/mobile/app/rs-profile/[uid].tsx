@@ -6,11 +6,21 @@ import {
   View,
   Pressable,
   ActivityIndicator,
+  AppState,
 } from "react-native";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { localDate, gel, cents, decimal } from "@biz/shared";
-import { Screen, Card, Txt, Button, Row, State } from "../../components/ui";
+import {
+  Screen,
+  Card,
+  Txt,
+  Button,
+  Row,
+  State,
+  IconButton,
+  BackLink,
+} from "../../components/ui";
 import { PeriodFilter } from "../../features/rs-profiles/period-filter";
 import { shortPeriod, validPeriod } from "../../features/rs-profiles/periods";
 import { SelectField } from "../../components/select-field";
@@ -23,27 +33,64 @@ import {
   type RsProfile,
   type RsZReportResponse,
 } from "../../features/rs-profiles/types";
+import { SettingsDrawer } from "../../components/settings-drawer";
+import { InboxDrawer, useInbox } from "../../features/rs-profiles/inbox";
+import { PortalBrowser } from "../../features/rs-profiles/portal-browser";
 import { RsProfileForm } from "../../features/rs-profiles/form";
 function range() {
   const to = localDate();
   return { from: to, to };
 }
 export default function Profile() {
-  const { uid } = useLocalSearchParams<{ uid: string }>();
+  const { uid, inbox: inboxParam } = useLocalSearchParams<{
+    uid: string;
+    inbox?: string;
+  }>();
   const path = `/local/profiles/${uid}`;
   const c = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const q = useResource<RsProfile>(path);
   const client = useQueryClient();
-  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [debtBusy, setDebtBusy] = useState(false);
+  const [debtProfile, setDebtProfile] = useState<RsProfile | null>(null);
+  const [debtRequestError, setDebtRequestError] = useState("");
   const [error, setError] = useState("");
   const [dates, setDates] = useState(range);
   const [device, setDevice] = useState("");
   const p = q.data;
+  const { unread } = useInbox(uid);
+  const [payOpen, setPayOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(inboxParam === "1");
+  useEffect(() => {
+    if (inboxParam === "1") setInboxOpen(true);
+  }, [inboxParam]);
+  const syncDebt = useCallback(async () => {
+    setDebtBusy(true);
+    setDebtRequestError("");
+    try {
+      setDebtProfile(await post<RsProfile>(path + "/debt", {}));
+    } catch {
+      setDebtRequestError(
+        "დავალიანების შემოწმება ვერ მოხერხდა. სცადეთ განახლება.",
+      );
+    } finally {
+      setDebtBusy(false);
+    }
+  }, [path]);
+  useFocusEffect(
+    useCallback(() => {
+      setDebtProfile(null);
+      if (p?.uid === uid) void syncDebt();
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active" && p?.uid === uid) void syncDebt();
+      });
+      return () => subscription.remove();
+    }, [p?.uid, uid, syncDebt]),
+  );
+  const debtState = debtProfile?.uid === uid ? debtProfile : p;
   useEffect(() => {
     if (p?.errorCode === "RS_INVALID_CREDENTIALS") {
-      setEditing(true);
       setSettingsOpen(true);
     }
   }, [p?.errorCode]);
@@ -131,34 +178,6 @@ export default function Profile() {
         minute: "2-digit",
       }).format(new Date(reportData.fetchedAt))
     : null;
-  const iconButton = (
-    label: string,
-    icon: string,
-    onPress: () => void,
-    disabled = false,
-  ) => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: 42,
-        height: 42,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: pressed ? c.line : c.card,
-        borderWidth: 1,
-        borderColor: c.line,
-        opacity: disabled ? 0.5 : 1,
-      })}
-    >
-      <Txt size={21} color={c.accent}>
-        {icon}
-      </Txt>
-    </Pressable>
-  );
   return (
     <Screen
       title={p?.name ?? "RS პროფილი"}
@@ -166,40 +185,51 @@ export default function Profile() {
       showContext={false}
       refreshing={busy}
       onRefresh={() => {
+        void syncDebt();
         if (validPeriod(dates)) void sync(dates);
       }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          marginTop: -8,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="‹ RS მომხმარებლების სია"
-          onPress={() => router.replace("/profiles")}
-          style={{ minHeight: 42, justifyContent: "center" }}
+      header={
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
         >
-          <Txt size={13} muted>
-            ‹ RS მომხმარებლები
-          </Txt>
-        </Pressable>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {iconButton("პროფილის პარამეტრები", "⚙", () =>
-            setSettingsOpen(!settingsOpen),
-          )}
-          {iconButton(
-            "RS-დან ინფორმაციის მიღება",
-            "↻",
-            () => void sync(dates),
-            busy || !validPeriod(dates),
-          )}
+          <BackLink
+            title="RS მომხმარებლები"
+            label="‹ RS მომხმარებლების სია"
+            onPress={() => router.replace("/profiles")}
+          />
+          <View style={{ flexDirection: "row" }}>
+            <IconButton
+              label="RS-დან ინფორმაციის მიღება"
+              symbol="arrow.clockwise"
+              glyph="↻"
+              disabled={busy || !validPeriod(dates)}
+              onPress={() => {
+                void sync(dates);
+                void syncDebt();
+              }}
+            />
+            <IconButton
+              label="RS შეტყობინებები"
+              symbol={unread ? "bell.badge" : "bell"}
+              glyph="🔔"
+              badge={unread}
+              onPress={() => setInboxOpen(true)}
+            />
+            <IconButton
+              label="პროფილის პარამეტრები"
+              symbol="gearshape"
+              glyph="⚙"
+              onPress={() => setSettingsOpen(!settingsOpen)}
+            />
+          </View>
         </View>
-      </View>
+      }
+    >
       <State
         loading={q.isPending}
         error={q.isError}
@@ -207,6 +237,53 @@ export default function Profile() {
       />
       {p && (
         <>
+          <Card>
+            <Txt bold size={13} muted>
+              ბიუჯეტში გადასახდელი თანხა
+            </Txt>
+            {debtBusy && <Txt muted>RS კაბინეტიდან ახლდება…</Txt>}
+            {debtState?.portalDebt ? (
+              <>
+                <Txt bold size={34}>
+                  {gel(debtState.portalDebt.total)}
+                </Txt>
+                {debtState.portalDebt.upcoming !== undefined ? (
+                  <>
+                    <Row
+                      title="მიმდინარე დავალიანება"
+                      value={gel(debtState.portalDebt.balance)}
+                    />
+                    <Row
+                      title="მომდევნო 30 დღის გადასახადი"
+                      value={gel(debtState.portalDebt.upcoming)}
+                    />
+                  </>
+                ) : (
+                  <Txt muted>{debtState.portalDebt.asOf} მდგომარეობით</Txt>
+                )}
+                <Txt muted>
+                  შემოწმებულია:{" "}
+                  {new Date(debtState.portalDebt.checkedAt).toLocaleString(
+                    "ka-GE",
+                    { timeZone: "Asia/Tbilisi" },
+                  )}
+                  {debtBusy || debtState.debtError || debtRequestError
+                    ? " · წინა მონაცემები"
+                    : ""}
+                </Txt>
+              </>
+            ) : (
+              !debtBusy && <Txt muted>დავალიანება ჯერ ვერ ჩაიტვირთა</Txt>
+            )}
+            {!!debtState?.debtError && (
+              <Txt>
+                {rsErrors[debtState.debtError] ??
+                  "RS კაბინეტიდან განახლება ვერ მოხერხდა."}
+              </Txt>
+            )}
+            {!!debtRequestError && <Txt>{debtRequestError}</Txt>}
+            <Button title="გადახდა" onPress={() => setPayOpen(true)} />
+          </Card>
           <Card>
             <PeriodFilter value={dates} busy={busy} onApply={applyPeriod} />
             <View style={{ opacity: busy ? 0.55 : 1, paddingTop: 4, gap: 3 }}>
@@ -367,83 +444,89 @@ export default function Profile() {
               )}
             </Card>
           )}
-          {settingsOpen && (
-            <Card>
-              <Txt bold size={17}>
-                პროფილის პარამეტრები
-              </Txt>
-              <Row title="RS მომხმარებელი" value={p.username} />
-              <Button
-                quiet
-                disabled={busy}
-                title={
-                  editing ? "შეცვლის დახურვა" : "პროფილის მონაცემების შეცვლა"
-                }
-                onPress={() => setEditing(!editing)}
-              />
-              {editing && (
-                <RsProfileForm
-                  initial={p}
-                  button="ცვლილებების შენახვა"
-                  onSave={async (value) => {
-                    const updated = await api<RsProfile>(path, {
-                      method: "PATCH",
-                      body: JSON.stringify(value),
-                    });
-                    client.setQueryData(["resource", path], updated);
-                    await client.invalidateQueries({
-                      queryKey: ["resource", "/local/profiles"],
-                    });
-                    setEditing(false);
-                    await sync(dates);
-                  }}
-                />
-              )}
-              <Button
-                quiet
-                title="RS პორტალის გახსნა ↗"
-                onPress={() =>
-                  void Linking.openURL("https://eservices.rs.ge/Login.aspx")
-                }
-              />
-              <Txt muted size={12}>
-                აქ ნაჩვენებია მხოლოდ სალაროების ფისკალური მონაცემები. ბანკი,
-                დავალიანება და დეკლარაციები ცალკე წყაროებს საჭიროებს.
-              </Txt>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="პროფილის წაშლა"
-                disabled={busy}
-                onPress={() => {
-                  if (Platform.OS === "web") {
-                    if (
-                      globalThis.confirm(
-                        "წაიშალოს RS პროფილი და მისი შენახული მონაცემები?",
-                      )
-                    )
-                      remove();
-                  } else
-                    Alert.alert(
-                      "პროფილის წაშლა",
-                      "წაიშლება შენახული პაროლი და მიღებული ინფორმაცია.",
-                      [
-                        { text: "გაუქმება", style: "cancel" },
-                        {
-                          text: "წაშლა",
-                          style: "destructive",
-                          onPress: remove,
-                        },
-                      ],
-                    );
+          <InboxDrawer
+            uid={uid}
+            open={inboxOpen}
+            onClose={() => setInboxOpen(false)}
+          />
+          <PortalBrowser
+            uid={uid}
+            username={p.username}
+            open={payOpen}
+            onClose={() => {
+              setPayOpen(false);
+              void syncDebt();
+            }}
+          />
+          <SettingsDrawer
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+          >
+            <Row title="RS მომხმარებელი" value={p.username} />
+            {settingsOpen && (
+              <RsProfileForm
+                initial={p}
+                button="ცვლილებების შენახვა"
+                onSave={async (value) => {
+                  const updated = await api<RsProfile>(path, {
+                    method: "PATCH",
+                    body: JSON.stringify(value),
+                  });
+                  client.setQueryData(["resource", path], updated);
+                  await client.invalidateQueries({
+                    queryKey: ["resource", "/local/profiles"],
+                  });
+                  setSettingsOpen(false);
+                  setDebtProfile(null);
+                  await syncDebt();
+                  await sync(dates);
                 }}
-                style={{ paddingVertical: 12 }}
-              >
-                <Txt size={13} color={c.danger}>
-                  პროფილის წაშლა
-                </Txt>
-              </Pressable>
-            </Card>
-          )}
+              />
+            )}
+            <Button
+              quiet
+              title="RS პორტალის გახსნა ↗"
+              onPress={() =>
+                void Linking.openURL("https://eservices.rs.ge/Login.aspx")
+              }
+            />
+            <Txt muted size={12}>
+              ფისკალური მონაცემები და დავალიანება RS-ის ცალკე სერვისებიდან
+              ახლდება.
+            </Txt>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="პროფილის წაშლა"
+              disabled={busy}
+              onPress={() => {
+                if (Platform.OS === "web") {
+                  if (
+                    globalThis.confirm(
+                      "წაიშალოს RS პროფილი და მისი შენახული მონაცემები?",
+                    )
+                  )
+                    remove();
+                } else
+                  Alert.alert(
+                    "პროფილის წაშლა",
+                    "წაიშლება შენახული პაროლი და მიღებული ინფორმაცია.",
+                    [
+                      { text: "გაუქმება", style: "cancel" },
+                      {
+                        text: "წაშლა",
+                        style: "destructive",
+                        onPress: remove,
+                      },
+                    ],
+                  );
+              }}
+              style={{ paddingVertical: 12 }}
+            >
+              <Txt size={13} color={c.danger}>
+                პროფილის წაშლა
+              </Txt>
+            </Pressable>
+          </SettingsDrawer>
         </>
       )}
     </Screen>

@@ -1,6 +1,10 @@
 import * as SQLite from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+const expoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+let previewSnapshot: string | null = null;
 let database: Promise<SQLite.SQLiteDatabase> | null = null;
 async function open() {
   if (!database)
@@ -32,6 +36,7 @@ async function open() {
 }
 export const protectedCache = {
   async read(): Promise<string | null> {
+    if (expoGo) return previewSnapshot;
     const db = await open();
     return (
       (
@@ -43,6 +48,10 @@ export const protectedCache = {
     );
   },
   async write(payload: string) {
+    if (expoGo) {
+      previewSnapshot = payload;
+      return;
+    }
     const db = await open();
     await db.runAsync(
       "INSERT OR REPLACE INTO query_cache(uid,payload) VALUES (?,?)",
@@ -51,6 +60,10 @@ export const protectedCache = {
     );
   },
   async clear() {
+    if (expoGo) {
+      previewSnapshot = null;
+      return;
+    }
     const db = await open();
     await db.runAsync("DELETE FROM query_cache");
   },

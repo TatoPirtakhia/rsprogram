@@ -13,6 +13,7 @@ import { tokenStore, useSession, securityStore } from "../services/session";
 import { useTheme } from "../theme";
 import { protectedCache } from "../services/cache";
 import { validCache, type CacheSnapshot } from "../services/cache-policy";
+import { useRsInboxNotifications } from "../services/push";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -25,6 +26,7 @@ export const queryClient = new QueryClient({
 });
 export default function Layout() {
   const c = useTheme();
+  useRsInboxNotifications();
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {

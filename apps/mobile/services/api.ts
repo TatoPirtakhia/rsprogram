@@ -41,10 +41,19 @@ export async function api<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(__DEV__ && process.env.EXPO_PUBLIC_PREVIEW_TOKEN
+        ? { "X-Preview-Token": process.env.EXPO_PUBLIC_PREVIEW_TOKEN }
+        : {}),
       ...(tokens ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
       ...init.headers,
     },
-    signal: AbortSignal.timeout(path.startsWith("/local/") ? 30000 : 15000),
+    signal: AbortSignal.timeout(
+      path.endsWith("/debt")
+        ? 60000
+        : path.startsWith("/local/")
+          ? 30000
+          : 15000,
+    ),
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
     if (!refreshPromise)

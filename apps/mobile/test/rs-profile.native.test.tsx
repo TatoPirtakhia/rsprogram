@@ -36,6 +36,10 @@ test("accepts an RS username and short password without app login", async () => 
     "ordinary_username",
   );
   await fireEvent.changeText(screen.getByLabelText("RS password"), "1");
+  await fireEvent.changeText(
+    screen.getByLabelText("Taxpayer ID"),
+    "60003008009",
+  );
   await act(async () => {
     await fireEvent.press(screen.getByText("შენახვა"));
   });
@@ -44,6 +48,7 @@ test("accepts an RS username and short password without app login", async () => 
       name: "Company",
       username: "ordinary_username",
       password: "1",
+      taxpayerId: "60003008009",
     }),
   );
   await waitFor(() =>

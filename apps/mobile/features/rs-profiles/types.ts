@@ -1,4 +1,22 @@
 export interface RsProfile {
+  portalDebt?: {
+    total: string;
+    balance: string;
+    upcoming?: string;
+    asOf: string;
+    checkedAt: string;
+    source: "RS_PORTAL";
+    sourceUrl: string;
+  };
+  taxpayerId?: string;
+  debt?: {
+    fetchedAt: string;
+    total: string;
+    status: string;
+    rows: { treasuryCode: string; treasuryCodeName: string; amount: string }[];
+  } | null;
+  debtError?: string | null;
+  debtAttemptAt?: string;
   uid: string;
   name: string;
   username: string;
@@ -45,6 +63,19 @@ export interface RsZReportResponse {
   chart: { date: string; amount: string }[];
 }
 export const rsErrors: Record<string, string> = {
+  RS_PORTAL_LOGIN_REQUIRED:
+    "RS კაბინეტში შესვლა ვერ დასრულდა. გადაამოწმეთ პროფილის მონაცემები; შესაძლოა SMS დადასტურებაა საჭირო.",
+  RS_PORTAL_ID_MISMATCH:
+    "RS-ში შესული ანგარიში პროფილის საიდენტიფიკაციო ნომერს არ ემთხვევა. თანხა არ განახლებულა.",
+  RS_PORTAL_FORMAT_CHANGED:
+    "RS-ის გვერდის ფორმატი ვერ ამოვიცანით. წინა თანხა შენარჩუნებულია.",
+  RS_PORTAL_UNAVAILABLE:
+    "RS კაბინეტიდან განახლება ვერ მოხერხდა. სცადეთ მოგვიანებით.",
+  RS_PORTAL_BUSY: "სხვა ანგარიშების შემოწმება მიმდინარეობს. სცადეთ ცოტა ხანში.",
+  RS_TAXPAYER_ID_REQUIRED:
+    "დავალიანების შესამოწმებლად პროფილის პარამეტრებში შეავსეთ საიდენტიფიკაციო / პირადი ნომერი.",
+  RS_DEBT_NOT_CONFIRMED:
+    "RS-მა დავალიანების თანხა არ დააბრუნა. ნულოვანი დავალიანება დადასტურებული არ არის; შესაძლოა ამ სერვისზე სპეციალური წვდომაა საჭირო.",
   RS_INVALID_CREDENTIALS:
     "RS სერვისმა ავტორიზაცია უარყო (კოდი 1: მომხმარებელი/პაროლი). იგზავნება ამ პროფილში შენახული მონაცემები დაუჰეშავად. უარყოფის ზუსტი მიზეზი RS-ის პასუხით არ დგინდება.",
   RS_REMOTE_SYSTEM_ERROR:
@@ -69,3 +100,16 @@ export const rsErrors: Record<string, string> = {
   RS_INVALID_RESPONSE: "RS სერვისის პასუხი მოსალოდნელ ფორმატს არ შეესაბამება.",
   RS_RESPONSE_TOO_LARGE: "RS სერვისის პასუხი დასაშვებ ზომას აღემატება.",
 };
+export interface RsInboxMessage {
+  id: string;
+  subject: string;
+  sentAt: string;
+  read: boolean;
+  preview: string;
+  text: string;
+}
+export interface RsInbox {
+  checkedAt: string | null;
+  error: string | null;
+  messages: RsInboxMessage[];
+}

@@ -106,7 +106,7 @@ export function PeriodFilter({
                 opacity: busy || !validPeriod(draft) ? 0.4 : 1,
               }}
             >
-              <Txt color={c.dark ? "#102A24" : "#FFFFFF"} bold size={18}>
+              <Txt color={c.dark ? "#000000" : "#FFFFFF"} bold size={18}>
                 ✓
               </Txt>
             </Pressable>

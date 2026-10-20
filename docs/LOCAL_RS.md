@@ -15,6 +15,14 @@ Open `http://localhost:8081`. `npm run local -w @biz/api` starts the same local 
 
 ## Use
 
+### iPhone Expo Go preview (SDK 57)
+
+The mobile workspace is aligned to SDK 57 for the installed iPhone Expo Go version. Expo Go uses an in-memory query cache; SQLCipher persistence remains enabled for development/production native builds. Face ID and push notification acceptance still require a development build.
+
+On Windows, run `./scripts/iphone-preview.ps1 -Service setup` once, then run `-Service api` and `-Service expo` in separate terminals. Setup discovers the current LAN address and writes a temporary pairing token to ignored `artifacts/iphone-preview.json` and `apps/mobile/.env.local`. Scan `exp://<computer-LAN-IP>:8081` on the iPhone; both devices must be on the same trusted Wi-Fi. This is a development-only preview, not a public server: the token is included in the development bundle, so it is not protection against other people with access to that bundle. Stop the preview services after testing. Production continues to reject this preview token.
+
+If Windows has denied Node.js inbound access, run `scripts/allow-iphone-preview.ps1` from an Administrator PowerShell window. It allows only this computer's preview ports 8081 and 3001 from the local subnet and adjusts the existing Node TCP denial rule to retain its block on other ports. No general firewall disabling is needed. Local RS routes otherwise remain loopback-only unless the preview environment and matching request token are both present.
+
 1. Click **RS მომხმარებლის დამატება**.
 2. Enter a display name, the exact RS username and its password. Usernames do not need to be emails; short nonempty passwords are accepted unchanged.
 3. Save and open the profile.
@@ -23,7 +31,23 @@ Open `http://localhost:8081`. `npm run local -w @biz/api` starts the same local 
 
 Saving and opening a profile requests its information. Only the selected profile's credentials are decrypted and used; no global RS username/password exists. Cached results remain visible while a new request is in progress.
 
+### RS inbox push notifications
+
+The local server checks the RS portal inbox („შეტყობინებები“, `/app/Notifications`) every 10 minutes for each profile that has a taxpayer ID. It signs in like the debt lookup, reads the list the page loads from `eapi.rs.ge/Notifications/GrdNotifications`, and sends an Expo push for message IDs it has not seen before. The first successful check only records the existing messages, so old messages never trigger a push. Profiles are checked one at a time. Set `RS_INBOX_POLL=0` to disable this, or `RS_INBOX_INTERVAL_MINUTES` (minimum 5) to change the interval. Frequent logins may make RS ask for SMS/CAPTCHA; that shows up as `inboxError` on the profile.
+
+Pushes need a development build: Expo Go cannot receive remote notifications. Run `eas init` once to add the EAS project ID, then `eas build --profile development --platform ios`. The app registers its push token with `POST /api/v1/local/push-token` on startup, and tapping a notification opens that profile. Delivery only works while this computer runs the server.
+
 ## Storage
+
+### Automatic budget debt lookup
+
+Profile settings accept an optional 9- or 11-digit taxpayer identification number. Opening a profile independently calls `POST /api/v1/local/profiles/:uid/debt`. The backend uses Puppeteer in headless mode to sign into the official RS web portal with that profile's stored credentials, verifies the taxpayer identity on MainPage, opens Accounting.aspx („საგადასახადო დავალიანება“) and reads the `hsAccounting.ashx/GetBudgetAccountingInfo` response it loads: `ToBePaid` (shown as the amount to pay), `Balance` (current debt) and `TotalDebt` (tax due in the next 30 days). This is today's payable amount; PayerInfo's recognized balance lags by its as-of date. A negative amount to pay is shown as zero debt, and a missing or malformed amount is an error, never zero. Each session signs out of the portal before closing, since sessions left open made later logins for the same account stall. `PayDecl.aspx?type=2` redirects sub-user accounts to MainPage, so it is not used.
+
+Every request starts a fresh isolated browser context and closes it afterward. There is no cached-success shortcut. Profile entry, pull-to-refresh, the top refresh icon and the debt refresh button trigger fresh reads. Only two portal browsers may run concurrently. Credentials and cookies are not returned or logged. No browser authentication state is persisted. SMS/CAPTCHA, changed page layout, identity mismatches and failed login are reported as failures. The last successful snapshot remains with its original timestamp and a previous-data marker. Editing credentials clears snapshots. This portal adapter is separate from the published SOAP APIs, which rejected the selected account despite successful portal login.
+
+Windows uses installed Google Chrome by default. Other hosts use Puppeteer's downloaded Chrome. Set `PUPPETEER_EXECUTABLE_PATH` to an installed compatible browser if needed. If package installation skips lifecycle scripts, run `npx puppeteer browsers install chrome`; Linux hosts also need Chrome's system libraries. Do not disable the Chrome sandbox to work around deployment configuration.
+
+The mobile application only requests the backend; it does not run Puppeteer on the phone. The current no-login server deliberately remains loopback-only. A physical phone or distributed mobile build requires a reachable HTTPS backend with per-user authentication, authorization and account-scoped profile storage before deployment; merely changing the API URL or binding this local service publicly is insufficient. No public hosting or mobile deployment has been performed. Payments update the app after RS itself posts them; the displayed RS as-of date may lag the check time.
 
 - `apps/api/data/rs-profiles.sqlite`: local profile records, encrypted passwords and cached service results.
 - `apps/api/data/credentials.key`: server-only AES-256-GCM encryption key, generated once and stored outside the database. Keep this file together with the database when backing up locally; losing it makes the saved passwords unrecoverable.
