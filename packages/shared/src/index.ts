@@ -1,4 +1,5 @@
 import { z } from "zod";
+export type { RsEmployee, RsEmployeesResult } from "./employees.js";
 export const moneySchema = z.string().regex(/^-?\d{1,16}\.\d{2}$/);
 export type Money = z.infer<typeof moneySchema>;
 export const loginSchema = z.object({

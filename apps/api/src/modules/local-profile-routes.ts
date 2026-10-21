@@ -16,6 +16,7 @@ import { RsRequestError } from "../providers/soap-transport.js";
 import { RsPortalDebtClient } from "../providers/rs-portal-debt-client.js";
 import { RsPortalInboxClient } from "../providers/rs-portal-inbox-client.js";
 import type { InboxClient } from "../jobs/inbox-poller.js";
+import { RsEmployeesClient } from "../providers/rs-employees-client.js";
 export type ProfileStore = {
   [K in keyof LocalProfileStore]: (
     ...args: Parameters<LocalProfileStore[K]>
@@ -90,16 +91,58 @@ export async function registerLocalProfiles(
   debtClient = new RsPortalDebtClient(),
   inboxClient: InboxClient = new RsPortalInboxClient(),
   access?: ServerAccess,
+  employeesClient = new RsEmployeesClient(),
 ) {
   const running = new Set<string>();
   const debtRunning = new Set<string>();
   const inboxRunning = new Set<string>();
+  const employeesRunning = new Set<string>();
   await app.register(
     async (local) => {
       local.addHook("onRequest", async (req) =>
         access ? serverAccess(req, access) : localOnly(req, allowedOrigin),
       );
       local.get("/profiles", async () => result(await store.list()));
+      local.post("/profiles/:uid/employees", async (req, reply) => {
+        const uid = z.uuid().parse((req.params as { uid: string }).uid);
+        const body = z
+          .object({ challengeId: z.uuid(), pin: z.string().regex(/^\d{4}$/) })
+          .optional()
+          .parse(
+            req.body && Object.keys(req.body).length ? req.body : undefined,
+          );
+        const profile = await store.get(uid);
+        if (!profile.taxpayerId)
+          return reply
+            .code(400)
+            .send({ error: { code: "RS_TAXPAYER_ID_REQUIRED" } });
+        if (employeesRunning.has(uid))
+          return reply.code(409).send({ error: { code: "SYNC_IN_PROGRESS" } });
+        employeesRunning.add(uid);
+        try {
+          return result(
+            await employeesClient.getEmployees(
+              uid,
+              await store.credentials(uid),
+              profile.taxpayerId,
+              body,
+            ),
+          );
+        } catch (error) {
+          return reply
+            .code(502)
+            .send({
+              error: {
+                code:
+                  error instanceof RsRequestError
+                    ? error.code
+                    : "RS_CONNECTION_FAILED",
+              },
+            });
+        } finally {
+          employeesRunning.delete(uid);
+        }
+      });
       local.post("/push-token", async (req) => {
         const { token } = z
           .object({

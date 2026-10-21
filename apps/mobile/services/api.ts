@@ -48,7 +48,7 @@ export async function api<T>(
       ...init.headers,
     },
     signal: AbortSignal.timeout(
-      path.endsWith("/debt")
+      path.endsWith("/debt") || path.endsWith("/employees")
         ? 60000
         : path.startsWith("/local/")
           ? 30000

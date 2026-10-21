@@ -236,6 +236,11 @@ export default function Profile() {
       />
       {p && (
         <>
+          <Button
+            title="დაქირავებული პირები"
+            quiet
+            onPress={() => router.push(`/employees/${uid}`)}
+          />
           <Card>
             <Txt bold size={13} muted>
               ბიუჯეტში გადასახდელი თანხა

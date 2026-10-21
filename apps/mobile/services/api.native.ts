@@ -27,7 +27,11 @@ export async function requestServer<T>(
       signal:
         init.signal ??
         AbortSignal.timeout(
-          path.endsWith("/debt") || path.endsWith("/inbox") ? 120000 : 30000,
+          path.endsWith("/debt") ||
+            path.endsWith("/inbox") ||
+            path.endsWith("/employees")
+            ? 120000
+            : 30000,
         ),
     });
   } catch {
