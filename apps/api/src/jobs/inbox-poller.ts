@@ -1,4 +1,4 @@
-import type { LocalProfileStore } from "../modules/local-profiles.js";
+import type { ProfileStore } from "../modules/local-profile-routes.js";
 import type { PortalMessage } from "../providers/rs-portal-inbox-client.js";
 import { RsRequestError } from "../providers/soap-transport.js";
 export interface PushMessage {
@@ -15,9 +15,9 @@ export interface InboxClient {
 }
 // Sends to every registered device and forgets tokens Expo reports as
 // no longer registered.
-export function expoPushSender(store: LocalProfileStore): PushSender {
+export function expoPushSender(store: ProfileStore): PushSender {
   return async (messages) => {
-    const tokens = store.pushTokens();
+    const tokens = await store.pushTokens();
     if (!tokens.length || !messages.length) return;
     const batch = messages.flatMap((m) =>
       tokens.map((to) => ({ to, sound: "default", ...m })),
@@ -37,10 +37,10 @@ export function expoPushSender(store: LocalProfileStore): PushSender {
     const result = (await response.json()) as {
       data?: { status: string; details?: { error?: string } }[];
     };
-    result.data?.forEach((ticket, i) => {
+    for (const [i, ticket] of (result.data ?? []).entries()) {
       if (ticket.details?.error === "DeviceNotRegistered")
-        store.removePushToken(batch[i].to);
-    });
+        await store.removePushToken(batch[i].to);
+    }
   };
 }
 export function inboxPush(
@@ -59,20 +59,20 @@ export function inboxPush(
 // One pass over every profile that has a taxpayer ID. Profiles run one at a
 // time so the portal never sees parallel logins from this server.
 export async function checkInboxes(
-  store: LocalProfileStore,
+  store: ProfileStore,
   client: InboxClient,
   send: PushSender,
 ) {
   const pushes: PushMessage[] = [];
-  for (const profile of store.list()) {
+  for (const profile of await store.list()) {
     if (!profile.taxpayerId) continue;
     try {
       const messages = await client.getMessages(
-        store.credentials(profile.uid),
+        await store.credentials(profile.uid),
         profile.taxpayerId,
       );
       const fresh = new Set(
-        store.inboxResult(profile.uid, messages, null).map((m) => m.id),
+        (await store.inboxResult(profile.uid, messages, null)).map((m) => m.id),
       );
       if (fresh.size)
         pushes.push(
@@ -82,7 +82,7 @@ export async function checkInboxes(
           ),
         );
     } catch (error) {
-      store.inboxResult(
+      await store.inboxResult(
         profile.uid,
         null,
         error instanceof RsRequestError ? error.code : "RS_CONNECTION_FAILED",
@@ -93,7 +93,7 @@ export async function checkInboxes(
   return pushes;
 }
 export function startInboxPoller(
-  store: LocalProfileStore,
+  store: ProfileStore,
   client: InboxClient,
   send: PushSender,
   intervalMs = 10 * 60 * 1000,

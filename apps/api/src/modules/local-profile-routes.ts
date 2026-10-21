@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { timingSafeEqual } from "node:crypto";
 import {
-  LocalProfileStore,
+  type LocalProfileStore,
   rsProfileSchema,
   type RsResponse,
 } from "./local-profiles.js";
@@ -16,6 +16,30 @@ import { RsRequestError } from "../providers/soap-transport.js";
 import { RsPortalDebtClient } from "../providers/rs-portal-debt-client.js";
 import { RsPortalInboxClient } from "../providers/rs-portal-inbox-client.js";
 import type { InboxClient } from "../jobs/inbox-poller.js";
+export type ProfileStore = {
+  [K in keyof LocalProfileStore]: (
+    ...args: Parameters<LocalProfileStore[K]>
+  ) =>
+    | ReturnType<LocalProfileStore[K]>
+    | Promise<ReturnType<LocalProfileStore[K]>>;
+};
+export interface ServerAccess {
+  connectionKey: string;
+  publicOrigin: string;
+}
+export function serverAccess(req: FastifyRequest, access: ServerAccess) {
+  const origin = new URL(access.publicOrigin);
+  const supplied = req.headers.authorization;
+  const expected = `Bearer ${access.connectionKey}`;
+  if (
+    req.headers.host !== origin.host ||
+    (req.headers.origin && req.headers.origin !== origin.origin) ||
+    typeof supplied !== "string" ||
+    Buffer.byteLength(supplied) !== Buffer.byteLength(expected) ||
+    !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))
+  )
+    throw Object.assign(new Error("UNAUTHORIZED"), { statusCode: 401 });
+}
 const result = (data: unknown) => ({
   data,
   error: null,
@@ -55,7 +79,7 @@ export function localOnly(req: FastifyRequest, allowedOrigin: string) {
 }
 export async function registerLocalProfiles(
   app: FastifyInstance,
-  store: LocalProfileStore,
+  store: ProfileStore,
   allowedOrigin: string,
   client: {
     getProfileInformation(
@@ -65,14 +89,17 @@ export async function registerLocalProfiles(
   } = new RsZReportClient(),
   debtClient = new RsPortalDebtClient(),
   inboxClient: InboxClient = new RsPortalInboxClient(),
+  access?: ServerAccess,
 ) {
   const running = new Set<string>();
   const debtRunning = new Set<string>();
   const inboxRunning = new Set<string>();
   await app.register(
     async (local) => {
-      local.addHook("onRequest", async (req) => localOnly(req, allowedOrigin));
-      local.get("/profiles", async () => result(store.list()));
+      local.addHook("onRequest", async (req) =>
+        access ? serverAccess(req, access) : localOnly(req, allowedOrigin),
+      );
+      local.get("/profiles", async () => result(await store.list()));
       local.post("/push-token", async (req) => {
         const { token } = z
           .object({
@@ -82,31 +109,33 @@ export async function registerLocalProfiles(
               .regex(/^Expo(?:nent)?PushToken\[[\w-]+\]$/),
           })
           .parse(req.body);
-        store.savePushToken(token);
+        await store.savePushToken(token);
         return result({ registered: true });
       });
       local.post("/profiles/:uid/password", async (req, reply) => {
         const uid = z.uuid().parse((req.params as { uid: string }).uid);
         reply.header("Cache-Control", "no-store");
-        return result({ password: store.credentials(uid).password });
+        return result({ password: (await store.credentials(uid)).password });
       });
       local.post("/profiles/:uid/debt", async (req, reply) => {
         const uid = z.uuid().parse((req.params as { uid: string }).uid);
-        const profile = store.get(uid);
+        const profile = await store.get(uid);
         if (!profile.taxpayerId)
-          return result(store.debtResult(uid, null, "RS_TAXPAYER_ID_REQUIRED"));
+          return result(
+            await store.debtResult(uid, null, "RS_TAXPAYER_ID_REQUIRED"),
+          );
         if (debtRunning.has(uid))
           return reply.code(409).send({ error: { code: "SYNC_IN_PROGRESS" } });
         debtRunning.add(uid);
         try {
           const debt = await debtClient.getDebt(
-            store.credentials(uid),
+            await store.credentials(uid),
             profile.taxpayerId,
           );
-          return result(store.portalResult(uid, debt, null));
+          return result(await store.portalResult(uid, debt, null));
         } catch (error) {
           return result(
-            store.portalResult(
+            await store.portalResult(
               uid,
               null,
               error instanceof RsRequestError
@@ -120,7 +149,9 @@ export async function registerLocalProfiles(
       });
       local.get("/profiles/:uid/inbox", async (req) =>
         result(
-          store.inbox(z.uuid().parse((req.params as { uid: string }).uid)),
+          await store.inbox(
+            z.uuid().parse((req.params as { uid: string }).uid),
+          ),
         ),
       );
       // Body { ids } marks those messages read; an empty body marks all.
@@ -134,29 +165,29 @@ export async function registerLocalProfiles(
               .optional(),
           })
           .parse(req.body ?? {});
-        return result(store.markInboxRead(uid, ids));
+        return result(await store.markInboxRead(uid, ids));
       });
       local.post("/profiles/:uid/inbox", async (req, reply) => {
         const uid = z.uuid().parse((req.params as { uid: string }).uid);
-        const profile = store.get(uid);
+        const profile = await store.get(uid);
         if (!profile.taxpayerId) {
-          store.inboxResult(uid, null, "RS_TAXPAYER_ID_REQUIRED");
-          return result(store.inbox(uid));
+          await store.inboxResult(uid, null, "RS_TAXPAYER_ID_REQUIRED");
+          return result(await store.inbox(uid));
         }
         if (inboxRunning.has(uid))
           return reply.code(409).send({ error: { code: "SYNC_IN_PROGRESS" } });
         inboxRunning.add(uid);
         try {
-          store.inboxResult(
+          await store.inboxResult(
             uid,
             await inboxClient.getMessages(
-              store.credentials(uid),
+              await store.credentials(uid),
               profile.taxpayerId,
             ),
             null,
           );
         } catch (error) {
-          store.inboxResult(
+          await store.inboxResult(
             uid,
             null,
             error instanceof RsRequestError
@@ -166,24 +197,26 @@ export async function registerLocalProfiles(
         } finally {
           inboxRunning.delete(uid);
         }
-        return result(store.inbox(uid));
+        return result(await store.inbox(uid));
       });
       local.post("/profiles", async (req) =>
-        result(store.save(rsProfileSchema.parse(req.body))),
+        result(await store.save(rsProfileSchema.parse(req.body))),
       );
       local.get("/profiles/:uid", async (req) =>
-        result(store.get(z.uuid().parse((req.params as { uid: string }).uid))),
+        result(
+          await store.get(z.uuid().parse((req.params as { uid: string }).uid)),
+        ),
       );
       local.patch("/profiles/:uid", async (req) =>
         result(
-          store.save(
+          await store.save(
             rsProfileSchema.parse(req.body),
             z.uuid().parse((req.params as { uid: string }).uid),
           ),
         ),
       );
       local.delete("/profiles/:uid", async (req) => {
-        store.delete(z.uuid().parse((req.params as { uid: string }).uid));
+        await store.delete(z.uuid().parse((req.params as { uid: string }).uid));
         return result({ deleted: true });
       });
       local.post("/profiles/:uid/sync", async (req, reply) => {
@@ -197,7 +230,7 @@ export async function registerLocalProfiles(
             })
             .parse(req.body ?? {}),
         });
-        const credentials = store.credentials(uid);
+        const credentials = await store.credentials(uid);
         if (running.has(uid))
           return reply.code(409).send({
             data: null,
@@ -211,7 +244,7 @@ export async function registerLocalProfiles(
         running.add(uid);
         try {
           return result(
-            store.result(
+            await store.result(
               uid,
               await client.getProfileInformation(credentials, range),
               null,
@@ -222,7 +255,7 @@ export async function registerLocalProfiles(
             error instanceof RsRequestError
               ? error.code
               : "RS_CONNECTION_FAILED";
-          return result(store.result(uid, null, code));
+          return result(await store.result(uid, null, code));
         } finally {
           running.delete(uid);
         }

@@ -3,14 +3,19 @@
     "name": "BizMonitor GE",
     "slug": "bizmonitor-ge",
     "scheme": "bizmonitor",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "ge.bizmonitor.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Unlock your business dashboard securely."
-      }
+        "NSFaceIDUsageDescription": "Unlock your business dashboard securely.",
+        "NSLocalNetworkUsageDescription": "Connect to your Mac running the BizMonitor server on the same network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "buildNumber": "4"
     },
     "android": {
       "package": "ge.bizmonitor.app"
@@ -26,6 +31,9 @@
           "useSQLCipher": true
         }
       ]
-    ]
+    ],
+    "updates": {
+      "enabled": false
+    }
   }
 }

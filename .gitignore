@@ -7,7 +7,8 @@ coverage/
 *.log
 test-results/
 playwright-report/
-artifacts/
+artifacts/*
+!artifacts/BizMonitor-cPanel-server.zip
 preview.png
 preview-*.png
 audit-report.json

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Alert,
   Platform,
@@ -53,6 +53,7 @@ export default function Profile() {
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [debtBusy, setDebtBusy] = useState(false);
+  const debtInFlight = useRef<string | null>(null);
   const [debtProfile, setDebtProfile] = useState<RsProfile | null>(null);
   const [debtRequestError, setDebtRequestError] = useState("");
   const [error, setError] = useState("");
@@ -66,6 +67,8 @@ export default function Profile() {
     if (inboxParam === "1") setInboxOpen(true);
   }, [inboxParam]);
   const syncDebt = useCallback(async () => {
+    if (debtInFlight.current === path) return;
+    debtInFlight.current = path;
     setDebtBusy(true);
     setDebtRequestError("");
     try {
@@ -75,6 +78,7 @@ export default function Profile() {
         "დავალიანების შემოწმება ვერ მოხერხდა. სცადეთ განახლება.",
       );
     } finally {
+      if (debtInFlight.current === path) debtInFlight.current = null;
       setDebtBusy(false);
     }
   }, [path]);
@@ -89,11 +93,6 @@ export default function Profile() {
     }, [p?.uid, uid, syncDebt]),
   );
   const debtState = debtProfile?.uid === uid ? debtProfile : p;
-  useEffect(() => {
-    if (p?.errorCode === "RS_INVALID_CREDENTIALS") {
-      setSettingsOpen(true);
-    }
-  }, [p?.errorCode]);
   const sync = useCallback(
     async (value: { from: string; to: string }) => {
       setBusy(true);

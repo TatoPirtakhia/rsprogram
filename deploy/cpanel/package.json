@@ -1,0 +1,25 @@
+{
+  "name": "bizmonitor-cpanel-server",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0 <27"
+  },
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "keys": "node generate-keys.cjs",
+    "check:browser": "node check-browser.cjs",
+    "browser:install": "puppeteer browsers install chrome"
+  },
+  "dependencies": {
+    "fastify": "5.12.7",
+    "@fastify/cors": "11.3.1",
+    "@fastify/rate-limit": "10.3.0",
+    "dotenv": "17.4.2",
+    "mysql2": "3.24.6",
+    "puppeteer": "25.15.0",
+    "zod": "4.6.7",
+    "fast-xml-parser": "5.11.2"
+  }
+}

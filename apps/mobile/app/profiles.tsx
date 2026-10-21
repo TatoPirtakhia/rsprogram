@@ -1,36 +1,63 @@
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
 import { useQueryClient } from "@tanstack/react-query";
-import { Screen, Card, Txt, Row, State } from "../components/ui";
+import { Screen, Card, Txt, Row, State, Button } from "../components/ui";
 import { RsProfileForm } from "../features/rs-profiles/form";
 import type { RsProfile } from "../features/rs-profiles/types";
 import { useResource } from "../hooks/useResource";
 import { post } from "../services/api";
 import { Sheet } from "../components/settings-drawer";
 import { useTheme } from "../theme";
+import { PhoneProfilesTransfer } from "../features/rs-profiles/phone-profiles-transfer";
+import { ServerSettings } from "../features/rs-profiles/server-settings";
 export default function Profiles() {
   const q = useResource<RsProfile[]>("/local/profiles");
   const client = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [serverOpen, setServerOpen] = useState(false);
   const c = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
+      {Platform.OS !== "web" && (
+        <ServerSettings
+          open={serverOpen}
+          onClose={() => setServerOpen(false)}
+          onSaved={async () => {
+            await client.cancelQueries();
+            client.clear();
+            await q.refetch();
+          }}
+        />
+      )}
       <Screen
         title="RS მომხმარებლები"
         demo={false}
         refreshing={q.isRefetching}
         onRefresh={() => void q.refetch()}
       >
+        {Platform.OS !== "web" && (
+          <Button
+            title="სერვერის პარამეტრები"
+            quiet
+            onPress={() => setServerOpen(true)}
+          />
+        )}
         <State
           loading={q.isPending}
           error={q.isError}
           retry={() => void q.refetch()}
         />
+        {Platform.OS !== "web" && (
+          <PhoneProfilesTransfer
+            serverProfiles={q.data}
+            onImported={() => q.refetch()}
+          />
+        )}
         {q.data?.length === 0 && (
           <Card>
             <Txt>RS მომხმარებელი ჯერ არ არის დამატებული.</Txt>
@@ -124,7 +151,7 @@ export default function Profiles() {
           }}
         />
         <Txt muted size={12}>
-          პაროლი დაშიფრულად ინახება ამ კომპიუტერზე. მისი მიღება მხოლოდ სერვერს
+          პაროლი დაშიფრულად ინახება სერვერის ბაზაში. მისი მიღება მხოლოდ სერვერს
           შეუძლია.
         </Txt>
       </Sheet>

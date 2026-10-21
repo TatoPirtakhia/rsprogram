@@ -2,7 +2,15 @@
 
 The app opens directly into **RS მომხმარებლები**. There is no application account or login step. The old `/login` URL redirects to this list. Local RS profile management does not use the application's JWT login or seeded demo password.
 
-## Run
+## Current native iPhone mode: Mac/server backend
+
+The native client now uses `services/api.native.ts` to send requests to the selected server, with its URL and connection key kept in Keychain. The Release app embeds its JavaScript and needs no Metro. Start the Mac API with `iPhone-start.command`. Local HTTP is restricted in client validation to private-network hosts; future hosted endpoints must use HTTPS.
+
+Profiles and RS credentials are stored by the server, and SOAP/portal scraping run there. The prior phone database is retained only for optional profile transfer. Changing the server clears resource caches and rejects late responses from the previous connection. The phone transfer button copies missing usernames only and retains the source phone records.
+
+See [the phone instructions](../iPhone-ინსტრუქცია.md). cPanel production deployment remains a separate step: the current local-only/demo server is not a production endpoint.
+
+## Run the web/server preview
 
 ```powershell
 npm ci

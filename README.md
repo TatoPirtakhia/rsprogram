@@ -4,6 +4,16 @@ React Native / Expo SDK 58 application with a Fastify REST API. **The current de
 
 The original demo monitoring modules and MySQL backend remain available as integration infrastructure. No hosted build or live taxpayer verification has been performed.
 
+## Current iPhone mode: server-backed client
+
+The iPhone app is now a Release frontend with embedded JavaScript. It requests the Mac API for profiles, encrypted server-side credential storage and RS SOAP/Puppeteer work. Metro is not needed. Start the API using `bash iPhone-start.command`, keep the Mac running, and use the same network on the phone. The pairing key remains stable across server restarts.
+
+Install the current build from `artifacts/iphone-server` with `bash iPhone-install.command`. The app's server settings store an endpoint and connection key in Keychain, so the client can later switch to an HTTPS hosting endpoint without another build. Public hosting needs a separately prepared production backend; the current local/demo server is not a public deployment.
+
+Profiles previously stored on the phone are retained. If they are missing on the selected server, the app offers an explicit transfer button that copies them without overwriting existing server usernames. See [the iPhone guide](iPhone-ინსტრუქცია.md).
+
+The earlier fully on-device mode and its tests remain in source for reference and migration, but native API requests now use the server.
+
 ## Quick demo without MySQL
 
 Node.js 24 LTS and npm are required. From the repository root:

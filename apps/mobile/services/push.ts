@@ -52,9 +52,14 @@ export function useRsInboxNotifications() {
         shouldSetBadge: false,
       }),
     });
-    void registerRsInboxPush().catch(() => {
-      /* Push is optional; the app works without it. */
-    });
+    if (
+      Constants.expoConfig?.extra?.eas?.projectId ||
+      Constants.easConfig?.projectId
+    ) {
+      void registerRsInboxPush().catch(() => {
+        /* Optional until EAS/APNs are configured. */
+      });
+    }
     const open = (response: Notifications.NotificationResponse | null) => {
       const uid = response?.notification.request.content.data?.profileUid;
       if (typeof uid === "string")

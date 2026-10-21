@@ -53,6 +53,7 @@ export async function createApp(
       ? {
           redact: [
             "req.headers.authorization",
+            "req.headers.x-preview-token",
             "req.headers.cookie",
             "body.password",
             "body.refreshToken",

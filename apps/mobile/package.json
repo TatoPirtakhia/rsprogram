@@ -32,6 +32,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-updates": "~57.0.26",
+    "fast-xml-parser": "^5.11.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.65.0",
