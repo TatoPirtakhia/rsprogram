@@ -57,6 +57,26 @@ export function parseBudgetAccounting(
   };
 }
 let active = 0;
+// Hosts that cannot run Chrome (e.g. cPanel) use a remote Browserless
+// browser when BROWSERLESS_TOKEN is set; otherwise Chrome is launched locally.
+function openBrowser() {
+  const token = process.env.BROWSERLESS_TOKEN;
+  if (token) {
+    const endpoint = new URL(
+      process.env.BROWSERLESS_URL || "wss://production-sfo.browserless.io",
+    );
+    endpoint.searchParams.set("token", token);
+    return puppeteer.connect({ browserWSEndpoint: endpoint.toString() });
+  }
+  return puppeteer.launch({
+    headless: true,
+    ...(process.env.PUPPETEER_EXECUTABLE_PATH
+      ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
+      : process.platform === "win32"
+        ? { channel: "chrome" as const }
+        : {}),
+  });
+}
 // Signs into eservices.rs.ge in a fresh, isolated headless browser, verifies
 // the taxpayer identity on MainPage and runs `read` on the signed-in page.
 // The browser and its cookies are always discarded afterwards.
@@ -70,14 +90,7 @@ export async function withPortalSession<T>(
   let browser;
   let signedIn: Page | undefined;
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      ...(process.env.PUPPETEER_EXECUTABLE_PATH
-        ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
-        : process.platform === "win32"
-          ? { channel: "chrome" as const }
-          : {}),
-    });
+    browser = await openBrowser();
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     page.setDefaultTimeout(12000);

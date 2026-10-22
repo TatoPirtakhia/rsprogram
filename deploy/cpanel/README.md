@@ -38,6 +38,8 @@
 | PORT | ჩვეულებრივ `3000`; თუ ჰოსტი თავად აწვდის PORT-ს, მისი მნიშვნელობა დატოვე |
 | RS_INBOX_POLL | `0` — ხელით განახლება. `1` მხოლოდ მუდმივად გაშვებულ პროცესზე ფონური შემოწმებისთვის |
 | RS_INBOX_INTERVAL_MINUTES | `10`, მინიმუმ `5` |
+| BROWSERLESS_TOKEN | რეკომენდებულია cPanel-ზე: Browserless-ის API გასაღები. მითითებისას Chrome ჰოსტზე აღარ ეშვება და დისტანციური ბრაუზერი გამოიყენება |
+| BROWSERLESS_URL | არასავალდებულო: Browserless-ის რეგიონი, ნაგულისხმევად `wss://production-sfo.browserless.io` (ევროპისთვის `wss://production-lon.browserless.io` ან `wss://production-ams.browserless.io`) |
 | PUPPETEER_EXECUTABLE_PATH | არასავალდებულო: ჰოსტინგზე არსებული Chrome-ის სრული გზა |
 | MYSQL_SSL_CA | არასავალდებულო: დისტანციური MySQL-ის CA სერტიფიკატის შიგთავსი, თუ TLS გჭირდება |
 | EXPO_ACCESS_TOKEN | არასავალდებულო, Expo push-ისთვის; საჭიროებს ცალკე გამართულ iOS push კონფიგურაციას |
@@ -55,6 +57,10 @@ node generate-keys.cjs
 ## 4. Chrome და შემოწმება
 
 დაქირავებულ პირთა სია იყენებს RS-ის პირდაპირ API-ს და Chrome არ სჭირდება. განახლებულ მობილურ აპში პროფილის „დაქირავებული პირები“ ღილაკით მიიღება სია, ძებნა და სტატუსის ფილტრი. ანგარიშს სჭირდება რეესტრის წაკითხვის უფლება; საჭიროებისას აპი ითხოვს RS-ის SMS კოდს. რეესტრის API ხელფასს არ აბრუნებს — ეკრანზე თანხა მიუწვდომელად აღინიშნება. SMS სესიები პროცესის მეხსიერებაშია; სერვერის გადატვირთვის ან სხვა პროცესზე მოხვედრისას თავიდან მიიღეთ სია.
+
+### Browserless (cPanel-ისთვის რეკომენდებული)
+
+თუ ჰოსტი Chrome-ს ვერ უშვებს, Environment variables-ში ჩაწერე `BROWSERLESS_TOKEN` და `PUPPETEER_SKIP_DOWNLOAD=true`, შემდეგ Run NPM Install და Restart. შემოწმება: `npm run check:browser` → `Browserless connect: OK` და `RS page: OK`. ამ რეჟიმში RS-ის მომხმარებელი/პაროლი Browserless-ის ბრაუზერში შეიყვანება, ანუ მესამე მხარის სერვისზე გადის.
 
 ნორმალურ `npm install`-ზე Puppeteer ჩამოტვირთავს ჰოსტის Linux-ის Chrome-ს `.cache/puppeteer` საქაღალდეში. თუ ჩამოტვირთვა გამოტოვებული იყო, გაუშვი:
 
